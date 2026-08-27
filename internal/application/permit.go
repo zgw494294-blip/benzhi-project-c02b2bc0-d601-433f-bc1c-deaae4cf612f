@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"blast-permit/internal/domain"
@@ -44,6 +45,9 @@ func (s *Service) IssuePermit(ctx context.Context, caseID string, a Actor, c Iss
 func (s *Service) PermitPrecheck(ctx context.Context, caseID string) (domain.PermitPrecheck, error) {
 	file, err := s.store.GetCase(ctx, caseID)
 	if err != nil {
+		if domain.ErrorCodeOf(err) == domain.CodeNotFound {
+			return domain.PermitPrecheck{}, fmt.Errorf("读取许可预检案卷失败: %v", err)
+		}
 		return domain.PermitPrecheck{}, err
 	}
 	return domain.BuildPermitPrecheck(*file), nil
@@ -52,10 +56,16 @@ func (s *Service) PermitPrecheck(ctx context.Context, caseID string) (domain.Per
 func (s *Service) VerifyPermit(ctx context.Context, number string) (VerificationResponse, error) {
 	p, err := s.store.GetPermit(ctx, number)
 	if err != nil {
+		if domain.ErrorCodeOf(err) == domain.CodeNotFound {
+			return VerificationResponse{}, fmt.Errorf("读取许可失败: %v", err)
+		}
 		return VerificationResponse{}, err
 	}
 	file, err := s.store.GetCase(ctx, p.CaseID)
 	if err != nil {
+		if domain.ErrorCodeOf(err) == domain.CodeNotFound {
+			return VerificationResponse{}, fmt.Errorf("读取许可案卷失败: %v", err)
+		}
 		return VerificationResponse{}, err
 	}
 	response := VerificationResponse{PermitNumber: p.PermitNumber, CaseID: p.CaseID, EvidenceDigest: p.EvidenceDigest, Status: "valid"}

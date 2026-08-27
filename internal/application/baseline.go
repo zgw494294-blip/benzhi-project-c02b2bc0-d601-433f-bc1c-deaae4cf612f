@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"fmt"
 
 	"blast-permit/internal/domain"
 	"blast-permit/internal/store"
@@ -10,6 +11,9 @@ import (
 func (s *Service) BaselinePrecheck(ctx context.Context, caseID string) (domain.BaselinePrecheck, error) {
 	file, err := s.store.GetCase(ctx, caseID)
 	if err != nil {
+		if domain.ErrorCodeOf(err) == domain.CodeNotFound {
+			return domain.BaselinePrecheck{}, fmt.Errorf("读取基线案卷失败: %v", err)
+		}
 		return domain.BaselinePrecheck{}, err
 	}
 	return domain.PrecheckBaseline(caseID, file.Targets), nil
