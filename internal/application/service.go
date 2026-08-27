@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"blast-permit/internal/domain"
@@ -13,14 +14,29 @@ import (
 )
 
 type Service struct {
-	store *store.Store
-	now   func() time.Time
+	store          *store.Store
+	caseRepository Repository
+	now            func() time.Time
+	caseLoadMu     sync.Mutex
+	inFlight       *caseLoad
 }
 
 func New(s *store.Store) *Service {
-	return &Service{store: s, now: func() time.Time { return time.Now().UTC() }}
+	return &Service{store: s, caseRepository: s, now: func() time.Time { return time.Now().UTC() }}
 }
-func NewWithClock(s *store.Store, now func() time.Time) *Service { return &Service{store: s, now: now} }
+func NewWithClock(s *store.Store, now func() time.Time) *Service {
+	return &Service{store: s, caseRepository: s, now: now}
+}
+func NewWithRepository(repository Repository) *Service {
+	return &Service{caseRepository: repository, now: func() time.Time { return time.Now().UTC() }}
+}
+
+type caseLoad struct {
+	done chan struct{}
+	file *domain.CaseFile
+	err  error
+}
+
 func newID(prefix string) string {
 	b := make([]byte, 10)
 	if _, err := rand.Read(b); err != nil {
