@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"blast-permit/internal/domain"
@@ -24,7 +25,8 @@ func (s *Service) IssuePermit(ctx context.Context, caseID string, a Actor, c Iss
 			return store.Mutation{}, domain.NewDetailedError(domain.CodePermitPrecheck, precheck, "许可证据预检未通过")
 		}
 		now := s.now()
-		number := "BP-" + now.Format("20060102") + "-" + newID("")[:12]
+		sequence := s.permitSequence.Add(1)
+		number := fmt.Sprintf("BP-%s-%06d", now.Format("20060102"), sequence)
 		permit := domain.NewPermit(number, *f, precheck, a.Name, now, now.Add(time.Duration(c.ValidHours)*time.Hour))
 		f.Permit = &permit
 		f.Case.State = domain.StateFrozen

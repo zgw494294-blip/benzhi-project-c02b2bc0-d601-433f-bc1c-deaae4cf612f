@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"blast-permit/internal/domain"
@@ -13,8 +14,9 @@ import (
 )
 
 type Service struct {
-	store *store.Store
-	now   func() time.Time
+	store          *store.Store
+	now            func() time.Time
+	permitSequence atomic.Uint64
 }
 
 func New(s *store.Store) *Service {
