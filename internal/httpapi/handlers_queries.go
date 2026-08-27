@@ -1,15 +1,39 @@
 package httpapi
 
-import "net/http"
+import (
+	"net/http"
+
+	"blast-permit/internal/domain"
+)
 
 func (a *API) GetCase(w http.ResponseWriter, r *http.Request) {
-	out, err := a.service.GetCase(r.Context(), r.PathValue("caseId"))
+	caseID := r.PathValue("caseId")
+	if cached, ok := a.cachedCase(caseID); ok {
+		writeJSON(w, http.StatusOK, cached)
+		return
+	}
+	out, err := a.service.GetCase(r.Context(), caseID)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
+	a.rememberCase(caseID, out)
 	writeJSON(w, http.StatusOK, out)
 }
+
+func (a *API) cachedCase(caseID string) (*domain.CaseFile, bool) {
+	a.caseMu.RLock()
+	defer a.caseMu.RUnlock()
+	file, ok := a.caseCache[caseID]
+	return file, ok
+}
+
+func (a *API) rememberCase(caseID string, file *domain.CaseFile) {
+	a.caseMu.Lock()
+	defer a.caseMu.Unlock()
+	a.caseCache[caseID] = file
+}
+
 func (a *API) GetAudit(w http.ResponseWriter, r *http.Request) {
 	out, err := a.service.Audit(r.Context(), r.PathValue("caseId"))
 	if err != nil {
