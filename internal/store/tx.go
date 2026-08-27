@@ -47,17 +47,17 @@ func (s *Store) Create(ctx context.Context, file *domain.CaseFile, operation, ke
 }
 
 func (s *Store) Mutate(ctx context.Context, caseID string, expected int64, operation, key, role, name string, mutate Mutator) (json.RawMessage, bool, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.db.BeginTx(context.Background(), nil)
 	if err != nil {
 		return nil, false, err
 	}
 	defer rollback(tx)
-	if raw, ok, err := readIdempotency(ctx, tx, operation, key); err != nil {
+	if raw, ok, err := readIdempotency(context.Background(), tx, operation, key); err != nil {
 		return nil, false, err
 	} else if ok {
 		return raw, true, nil
 	}
-	file, err := loadCaseTx(ctx, tx, caseID)
+	file, err := loadCaseTx(context.Background(), tx, caseID)
 	if err != nil {
 		return nil, false, err
 	}
@@ -74,17 +74,17 @@ func (s *Store) Mutate(ctx context.Context, caseID string, expected int64, opera
 	if file.Case.Version != expected+1 {
 		return nil, false, domain.NewError(domain.CodeCorrupt, "变更未正确推进聚合版本")
 	}
-	if err = saveCaseTx(ctx, tx, file, expected); err != nil {
+	if err = saveCaseTx(context.Background(), tx, file, expected); err != nil {
 		return nil, false, err
 	}
 	raw, err := json.Marshal(m.Response)
 	if err != nil {
 		return nil, false, err
 	}
-	if err = appendAudit(ctx, tx, caseID, m.EventType, role, name, m.Details, file.Case.UpdatedAt); err != nil {
+	if err = appendAudit(context.Background(), tx, caseID, m.EventType, role, name, m.Details, file.Case.UpdatedAt); err != nil {
 		return nil, false, err
 	}
-	if err = writeIdempotency(ctx, tx, operation, key, caseID, raw, time.Now().UTC()); err != nil {
+	if err = writeIdempotency(context.Background(), tx, operation, key, caseID, raw, time.Now().UTC()); err != nil {
 		return nil, false, err
 	}
 	if err = tx.Commit(); err != nil {
