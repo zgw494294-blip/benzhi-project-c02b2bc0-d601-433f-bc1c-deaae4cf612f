@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"blast-permit/internal/domain"
@@ -13,14 +14,18 @@ import (
 )
 
 type Service struct {
-	store *store.Store
-	now   func() time.Time
+	store             *store.Store
+	now               func() time.Time
+	verificationMu    sync.RWMutex
+	verificationCache map[string]VerificationResponse
 }
 
 func New(s *store.Store) *Service {
-	return &Service{store: s, now: func() time.Time { return time.Now().UTC() }}
+	return &Service{store: s, now: func() time.Time { return time.Now().UTC() }, verificationCache: map[string]VerificationResponse{}}
 }
-func NewWithClock(s *store.Store, now func() time.Time) *Service { return &Service{store: s, now: now} }
+func NewWithClock(s *store.Store, now func() time.Time) *Service {
+	return &Service{store: s, now: now, verificationCache: map[string]VerificationResponse{}}
+}
 func newID(prefix string) string {
 	b := make([]byte, 10)
 	if _, err := rand.Read(b); err != nil {

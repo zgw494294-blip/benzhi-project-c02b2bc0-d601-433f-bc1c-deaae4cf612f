@@ -50,6 +50,9 @@ func (s *Service) PermitPrecheck(ctx context.Context, caseID string) (domain.Per
 }
 
 func (s *Service) VerifyPermit(ctx context.Context, number string) (VerificationResponse, error) {
+	if cached, ok := s.cachedPermitVerification(number); ok {
+		return cached, nil
+	}
 	p, err := s.store.GetPermit(ctx, number)
 	if err != nil {
 		return VerificationResponse{}, err
@@ -84,7 +87,21 @@ func (s *Service) VerifyPermit(ctx context.Context, number string) (Verification
 		return response, nil
 	}
 	response.Valid = true
+	s.rememberPermitVerification(number, response)
 	return response, nil
+}
+
+func (s *Service) cachedPermitVerification(number string) (VerificationResponse, bool) {
+	s.verificationMu.RLock()
+	defer s.verificationMu.RUnlock()
+	response, ok := s.verificationCache[number]
+	return response, ok
+}
+
+func (s *Service) rememberPermitVerification(number string, response VerificationResponse) {
+	s.verificationMu.Lock()
+	defer s.verificationMu.Unlock()
+	s.verificationCache[number] = response
 }
 
 func componentMismatches(frozen, current []domain.EvidenceComponent) []string {
